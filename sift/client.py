@@ -155,7 +155,7 @@ class Client(object):
                 params=params)
             return Response(response)
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), path)
 
     def score(self, user_id, timeout=None, abuse_types=None, version=None):
         """Retrieves a user's fraud score from the Sift Science API.
@@ -191,15 +191,17 @@ class Client(object):
         if abuse_types:
             params['abuse_types'] = ','.join(abuse_types)
 
+        url = self._score_url(user_id, version)
+
         try:
             response = requests.get(
-                self._score_url(user_id, version),
+                url,
                 headers=headers,
                 timeout=timeout,
                 params=params)
             return Response(response)
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def get_user_score(self, user_id, timeout=None, abuse_types=None):
         """Fetches the latest score(s) computed for the specified user and abuse types from the Sift Science API.
@@ -227,6 +229,7 @@ class Client(object):
         if timeout is None:
             timeout = self.timeout
 
+        url = self._user_score_url(user_id, self.version)
         headers = {'User-Agent': self._user_agent()}
         params = {'api_key': self.api_key}
         if abuse_types:
@@ -234,13 +237,13 @@ class Client(object):
 
         try:
             response = requests.get(
-                self._user_score_url(user_id, self.version),
+                url,
                 headers=headers,
                 timeout=timeout,
                 params=params)
             return Response(response)
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def rescore_user(self, user_id, timeout=None, abuse_types=None):
         """Rescores the specified user for the specified abuse types and returns the resulting score(s).
@@ -265,6 +268,7 @@ class Client(object):
         if timeout is None:
             timeout = self.timeout
 
+        url = self._user_score_url(user_id, self.version)
         headers = {'User-Agent': self._user_agent()}
         params = {'api_key': self.api_key}
         if abuse_types:
@@ -272,13 +276,13 @@ class Client(object):
 
         try:
             response = requests.post(
-                self._user_score_url(user_id, self.version),
+                url,
                 headers=headers,
                 timeout=timeout,
                 params=params)
             return Response(response)
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def label(self, user_id, properties, timeout=None, version=None):
         """Labels a user as either good or bad through the Sift Science API.
@@ -339,6 +343,7 @@ class Client(object):
         if version is None:
             version = self.version
 
+        url = self._label_url(user_id, version)
         headers = {'User-Agent': self._user_agent()}
         params = {'api_key': self.api_key}
         if abuse_type:
@@ -347,14 +352,14 @@ class Client(object):
         try:
 
             response = requests.delete(
-                self._label_url(user_id, version),
+                url,
                 headers=headers,
                 timeout=timeout,
                 params=params)
             return Response(response)
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def get_workflow_status(self, run_id, timeout=None):
         """Gets the status of a workflow run.
@@ -369,18 +374,19 @@ class Client(object):
         """
         _assert_non_empty_unicode(run_id, 'run_id')
 
+        url = self._workflow_status_url(self.account_id, run_id)
         if timeout is None:
             timeout = self.timeout
 
         try:
             return Response(requests.get(
-                self._workflow_status_url(self.account_id, run_id),
+                url,
                 auth=requests.auth.HTTPBasicAuth(self.api_key, ''),
                 headers={'User-Agent': self._user_agent()},
                 timeout=timeout))
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def get_decisions(self, entity_type, limit=None, start_from=None, abuse_types=None, timeout=None):
         """Get decisions available to customer
@@ -416,13 +422,15 @@ class Client(object):
         if abuse_types:
             params['abuse_types'] = abuse_types
 
+        url = self._get_decisions_url(self.account_id)
+
         try:
-            return Response(requests.get(self._get_decisions_url(self.account_id), params=params,
+            return Response(requests.get(url, params=params,
                                          auth=requests.auth.HTTPBasicAuth(self.api_key, ''),
                                          headers={'User-Agent': self._user_agent()}, timeout=timeout))
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def apply_user_decision(self, user_id, properties, timeout=None):
         """Apply decision to user
@@ -442,10 +450,11 @@ class Client(object):
             timeout = self.timeout
 
         self._validate_apply_decision_request(properties, user_id)
+        url = self._user_decisions_url(self.account_id, user_id)
 
         try:
             return Response(requests.post(
-                self._user_decisions_url(self.account_id, user_id),
+                url,
                 data=json.dumps(properties),
                 auth=requests.auth.HTTPBasicAuth(self.api_key, ''),
                 headers={'Content-type': 'application/json',
@@ -454,7 +463,7 @@ class Client(object):
                 timeout=timeout))
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def apply_order_decision(self, user_id, order_id, properties, timeout=None):
         """Apply decision to order
@@ -480,9 +489,11 @@ class Client(object):
 
         self._validate_apply_decision_request(properties, user_id)
 
+        url = self._order_apply_decisions_url(self.account_id, user_id, order_id)
+
         try:
             return Response(requests.post(
-                self._order_apply_decisions_url(self.account_id, user_id, order_id),
+                url,
                 data=json.dumps(properties),
                 auth=requests.auth.HTTPBasicAuth(self.api_key, ''),
                 headers={'Content-type': 'application/json',
@@ -491,7 +502,7 @@ class Client(object):
                 timeout=timeout))
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def _validate_apply_decision_request(self, properties, user_id):
         _assert_non_empty_unicode(user_id, 'user_id')
@@ -528,15 +539,17 @@ class Client(object):
         if timeout is None:
             timeout = self.timeout
 
+        url = self._user_decisions_url(self.account_id, user_id)
+
         try:
             return Response(requests.get(
-                self._user_decisions_url(self.account_id, user_id),
+                url,
                 auth=requests.auth.HTTPBasicAuth(self.api_key, ''),
                 headers={'User-Agent': self._user_agent()},
                 timeout=timeout))
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def get_order_decisions(self, order_id, timeout=None):
         """Gets the decisions for an order.
@@ -554,15 +567,17 @@ class Client(object):
         if timeout is None:
             timeout = self.timeout
 
+        url = self._order_decisions_url(self.account_id, order_id)
+
         try:
             return Response(requests.get(
-                self._order_decisions_url(self.account_id, order_id),
+                url,
                 auth=requests.auth.HTTPBasicAuth(self.api_key, ''),
                 headers={'User-Agent': self._user_agent()},
                 timeout=timeout))
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def get_content_decisions(self, user_id, content_id, timeout=None):
         """Gets the decisions for a piece of content.
@@ -582,15 +597,17 @@ class Client(object):
         if timeout is None:
             timeout = self.timeout
 
+        url = self._content_decisions_url(self.account_id, user_id, content_id)
+
         try:
             return Response(requests.get(
-                self._content_decisions_url(self.account_id, user_id, content_id),
+                url,
                 auth=requests.auth.HTTPBasicAuth(self.api_key, ''),
                 headers={'User-Agent': self._user_agent()},
                 timeout=timeout))
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def get_session_decisions(self, user_id, session_id, timeout=None):
         """Gets the decisions for a user's session.
@@ -610,15 +627,17 @@ class Client(object):
         if timeout is None:
             timeout = self.timeout
 
+        url = self._session_decisions_url(self.account_id, user_id, session_id)
+
         try:
             return Response(requests.get(
-                self._session_decisions_url(self.account_id, user_id, session_id),
+                url,
                 auth=requests.auth.HTTPBasicAuth(self.api_key, ''),
                 headers={'User-Agent': self._user_agent()},
                 timeout=timeout))
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def apply_session_decision(self, user_id, session_id, properties, timeout=None):
         """Apply decision to session
@@ -643,9 +662,11 @@ class Client(object):
 
         self._validate_apply_decision_request(properties, user_id)
 
+        url = self._session_apply_decisions_url(self.account_id, user_id, session_id)
+
         try:
             return Response(requests.post(
-                self._session_apply_decisions_url(self.account_id, user_id, session_id),
+                url,
                 data=json.dumps(properties),
                 auth=requests.auth.HTTPBasicAuth(self.api_key, ''),
                 headers={'Content-type': 'application/json',
@@ -654,7 +675,7 @@ class Client(object):
                 timeout=timeout))
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def apply_content_decision(self, user_id, content_id, properties, timeout=None):
         """Apply decision to content
@@ -679,9 +700,11 @@ class Client(object):
 
         self._validate_apply_decision_request(properties, user_id)
 
+        url = self._content_apply_decisions_url(self.account_id, user_id, content_id)
+
         try:
             return Response(requests.post(
-                self._content_apply_decisions_url(self.account_id, user_id, content_id),
+                url,
                 data=json.dumps(properties),
                 auth=requests.auth.HTTPBasicAuth(self.api_key, ''),
                 headers={'Content-type': 'application/json',
@@ -690,7 +713,7 @@ class Client(object):
                 timeout=timeout))
 
         except requests.exceptions.RequestException as e:
-            raise ApiException(str(e))
+            raise ApiException(str(e), url)
 
     def _user_agent(self):
         return 'SiftScience/v%s sift-python/%s' % (sift.version.API_VERSION, sift.version.VERSION)
@@ -762,14 +785,24 @@ class Response(object):
                 if 'request' in self.body.keys() and isinstance(self.body['request'], str):
                     self.request = json.loads(self.body['request'])
             except ValueError:
-                not_json_warning = "Failed to parse json response from {}.  HTTP status code: {}.".format(self.url, self.http_status_code)
-                raise ApiException(not_json_warning)
+                raise ApiException(
+                    'Failed to parse json response from ' + self.url,
+                    url=self.url,
+                    http_status_code=self.http_status_code,
+                    body=self.body,
+                    api_status=self.api_status,
+                    api_error_message=self.api_error_message,
+                    request=self.request)
             finally:
                 if int(self.http_status_code) < 200 or int(self.http_status_code) >= 300:
-                    non_2xx_warning = "{} returned non-2XX http status code {}".format(self.url, self.http_status_code)
-                    if self.api_error_message:
-                        non_2xx_warning += " with error message: {}".format(self.api_error_message)
-                    raise ApiException(non_2xx_warning)
+                    raise ApiException(
+                        '{0} returned non-2XX http status code {0}'.format(self.url, self.http_status_code),
+                        url=self.url,
+                        http_status_code=self.http_status_code,
+                        body=self.body,
+                        api_status=self.api_status,
+                        api_error_message=self.api_error_message,
+                        request=self.request)
 
     def __str__(self):
         return ('{%s "http_status_code": %s}' %
@@ -789,9 +822,16 @@ class Response(object):
 
 
 class ApiException(Exception):
-    def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args, **kwargs)
+    def __init__(self, message, url, http_status_code=None, body=None, api_status=None,
+                 api_error_message=None, request=None):
+        Exception.__init__(self, message)
 
+        self.url = url
+        self.http_status_code = http_status_code
+        self.body = body
+        self.api_status = api_status
+        self.api_error_message = api_error_message
+        self.request = request
 
 
 def _assert_non_empty_unicode(val, name, error_cls=None):
